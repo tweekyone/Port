@@ -1,5 +1,6 @@
 package ru.tweekyone.exercises.port;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -18,6 +19,10 @@ public class Port {
     public Port() {
         storage = new ArrayBlockingQueue<>(CAPACITY);
     }
+    
+    public Port(ArrayBlockingQueue<Container> storage){
+        this.storage = storage;
+    }
 
     class Dock {
         
@@ -35,7 +40,7 @@ public class Port {
             return numberOfDock;
         }
         
-        public Container takeContainer() {
+        public Container takeContainers() {
             Container container = null;
             lock.lock();
             
@@ -53,12 +58,14 @@ public class Port {
             } else throw new IllegalArgumentException();           
         }
         
-        public void putContainer(Container container) {
+        public void putContainers(ArrayList<Container> containers) {
             
             try {
                 lock.lock();
-                storage.put(container);
-                System.out.println("Container " + container.getSerialNumber() + " was accepted in storage through " + getNumberOfDock() + " dock");
+                for (Container cont : containers){
+                    storage.put(cont);
+                    System.out.println("Container " + cont.getSerialNumber() + " was accepted in storage through " + getNumberOfDock() + " dock");
+                }
                 isFree.signalAll();
             } catch (InterruptedException e) {
                 System.out.println("Interrupted exception " + e);
