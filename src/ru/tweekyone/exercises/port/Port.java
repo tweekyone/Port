@@ -1,8 +1,9 @@
 package ru.tweekyone.exercises.port;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.Condition;
@@ -11,21 +12,30 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class Port {
-    
     private static final int NUMBER_OF_DOCKS = 3; 
     private static final int CAPACITY = 30;  
     private BlockingQueue<Container> storage;
+    private BlockingQueue<Dock> docks;
 
     public Port() {
         storage = new ArrayBlockingQueue<>(CAPACITY);
+        docks();
     }
     
-    public Port(ArrayBlockingQueue<Container> storage){
-        this.storage = storage;
+    public Port(LinkedList<Container> storage){
+        this.storage = new ArrayBlockingQueue<>(CAPACITY);
+        this.storage.addAll(storage);
+        docks();
     }
 
+    private void docks(){
+        docks = new ArrayBlockingQueue<>(NUMBER_OF_DOCKS);
+        for (int i = 1; i < NUMBER_OF_DOCKS + 1; i++) {
+            docks.add(new Dock(i));
+        }
+    }
+    
     class Dock {
-        
         private final int numberOfDock;
         private Lock lock;
         private Condition isFree;
@@ -40,37 +50,35 @@ public class Port {
             return numberOfDock;
         }
         
-        public Container takeContainers() {
-            Container container = null;
-            lock.lock();
-            
+        public void takeContainers(Queue<Container> containers, int capasity) {
             try{
-                container = storage.take();
-            } catch (InterruptedException e) {
-                System.out.println("Interrupted exception " + e);
+                //lock.lock();
+                while (containers.size() < capasity){
+                    Container cont = storage.take();
+                    containers.add(cont);
+                    System.out.println("Container " + cont.getSerialNumber() + " was taken from the storage through Dock " + getNumberOfDock());
+                }
+                //isFree.signalAll();
+            } catch (InterruptedException e){
+                System.out.println("Interrupted exception in TAKE "+ e);
+            } finally {
+                //lock.unlock();
             }
-            
-            if (container != null) {
-                System.out.println("Container " + container.getSerialNumber() + " was taken from " + getNumberOfDock() + " dock");
-                isFree.signalAll();
-                lock.unlock();
-                return container;
-            } else throw new IllegalArgumentException();           
         }
         
-        public void putContainers(ArrayList<Container> containers) {
-            
+        public void putContainers(Queue<Container> containers) {
             try {
-                lock.lock();
-                for (Container cont : containers){
+                //lock.lock();
+                while (!containers.isEmpty()){
+                    Container cont = containers.poll();
                     storage.put(cont);
-                    System.out.println("Container " + cont.getSerialNumber() + " was accepted in storage through " + getNumberOfDock() + " dock");
+                    System.out.println("Container " + cont.getSerialNumber() + " was accepted in storage through Dock " + getNumberOfDock());
                 }
-                isFree.signalAll();
+                //isFree.signalAll();
             } catch (InterruptedException e) {
-                System.out.println("Interrupted exception " + e);
+                System.out.println("Interrupted exception in PUT " + e);
             } finally {
-                lock.unlock();
+                //lock.unlock();
             }
         } 
     }
@@ -84,5 +92,21 @@ public class Port {
                                            .map(x -> (Container) x)
                                            .collect(Collectors.toList());
         return containers;
+    }
+    
+    public Dock getFreeDock(){
+        try{
+            return docks.take();
+        }catch (InterruptedException e){
+            System.out.println("Interrupted exception " + e);
+        } throw new IllegalArgumentException("Port has no free dock");
+    }
+    
+    public void freeTheDock(Dock dock){
+        try{
+            docks.put(dock);
+        }catch (InterruptedException e){
+            System.out.println("Interrupted exception " + e);
+        }
     }
 }
